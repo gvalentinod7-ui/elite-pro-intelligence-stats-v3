@@ -23,9 +23,10 @@ jobs:
       - name: Installer Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Installer API Android
+      - name: Installer Android API 36
         run: |
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Installer Gradle 9.5
         uses: gradle/actions/setup-gradle@v6
@@ -36,10 +37,11 @@ jobs:
       - name: Decompresser Elite-Pro V3
         run: |
           mkdir -p buildsrc
+
           ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "Aucun fichier ZIP trouve"
+            echo "Aucun ZIP trouve"
             exit 1
           fi
 
@@ -49,12 +51,21 @@ jobs:
           PROJECT_DIR=$(find buildsrc -type f -name "settings.gradle.kts" -printf '%h\n' | head -n 1)
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "Projet Android introuvable dans le ZIP"
+            echo "Projet Android introuvable"
             exit 1
           fi
 
-          echo "Projet Android : $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Adapter projet a Android 16
+        run: |
+          echo "Projet : $PROJECT_DIR"
+
+          sed -i 's/compileSdk = 37/compileSdk = 36/g' \
+          "$PROJECT_DIR/app/build.gradle.kts"
+
+          grep -n "compileSdk" "$PROJECT_DIR/app/build.gradle.kts"
+          grep -n "targetSdk" "$PROJECT_DIR/app/build.gradle.kts"
 
       - name: Compiler APK Android
         run: |
