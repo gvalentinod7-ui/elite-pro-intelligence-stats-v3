@@ -1,0 +1,79 @@
+name: Build Elite-Pro Midnight Pearl Signature V5.4
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v6
+
+      - name: Installer Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Installer Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Installer Android API 36
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Decompresser Elite-Pro V5.4
+        run: |
+          mkdir -p buildsrc-v54
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*V5.4*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERREUR : fichier V5.4 ZIP introuvable"
+            exit 1
+          fi
+
+          echo "ZIP V5.4 : $ZIP_FILE"
+          unzip -q "$ZIP_FILE" -d buildsrc-v54
+          PROJECT_DIR=$(find buildsrc-v54 -type f -name "settings.gradle.kts" -printf '%h\n' | head -n 1)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERREUR : projet Android V5.4 introuvable"
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Projet V5.4 : $PROJECT_DIR"
+
+      - name: Installer Gradle 9.5
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.5.0'
+          cache-disabled: true
+
+      - name: Compiler Elite-Pro V5.4
+        run: |
+          cd "$PROJECT_DIR"
+          gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Preparer APK V5.4
+        run: |
+          APK_FILE=$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "ERREUR : APK V5.4 introuvable"
+            exit 1
+          fi
+          cp "$APK_FILE" "ELITE-PRO-MIDNIGHT-PEARL-SIGNATURE-V5.4.apk"
+          ls -lh "ELITE-PRO-MIDNIGHT-PEARL-SIGNATURE-V5.4.apk"
+
+      - name: Publier APK V5.4
+        uses: actions/upload-artifact@v4
+        with:
+          name: ELITE-PRO-MIDNIGHT-PEARL-SIGNATURE-V5.4
+          path: ELITE-PRO-MIDNIGHT-PEARL-SIGNATURE-V5.4.apk
+          if-no-files-found: error
